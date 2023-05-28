@@ -1,0 +1,146 @@
+##Provisioning an Azure Virtual Machine with PowerShell##
+##Prerequisites##
+    An Azure subscription
+    1. PowerShell (Core) - Although you could follow along with this tutorial with Windows PowerShell, you should know by now it's no longer being actively developed by Microsoft. Instead, be sure you have PowerShell (Core) installed. Learn how to install PowerShell (Core) in a previous post in our series <link here>.
+    2. To have already authenticated to Azure (For instructions on connecting to Azure, check out this post<link here> in our series on how to do that)
+    3. Authenticated with an account with permission to create an Azure VM and all of it's necessary components like a vNet, storage, etc.
+    4. A code editor - You should use Visual Studio Code <link here to previous post> for your PowerShell code editor but any editor will do. The tutorial will assume you're using Visual Studio Code.
+## Study material/referance##
+https://learn.microsoft.com/en-us/azure/virtual-machines/windows/multiple-nics
+https://www.skylinesacademy.com/blog/2020/10/2/provisioning-an-azure-virtual-machine-with-powershell
+
+##Objective##
+*Deploye Resource using Powershell* 
+Install-Module -Name AzureRM
+Update-Module -Name AzureRM
+Login-AzureRmAccount
+Set-ExecutionPolicy RemoteSigned   if faced remote problem
+Get-AzureRMSubscription
+Get-help
+Get-AzureRmContext
+**********************************************************************************************************
+Step 1 : 
+*To create Resource group*
+$rgName="training"
+$location="central india"
+New-AzureRmResourceGroup -Name $rgName -Location $location
+
+***********************************************************************************************************
+
+
+Step 2: Create a Storage Account
+$STAName="vmstoragename"
+$STAType="Standard_LRS"
+$STA = New-AzureRmStorageAccount -Name $STAName -ResourceGroupName $rgName -Location $location -Type Standard_LRS
+
+****************************************************************************************************************
+
+Step 3: Create a Network 
+
+network with at least one subnet for the new virtual machine.
+
+$NICName="WebVM1-nic"
+
+$PubliciPName="WebVM1-ip"
+
+$vNetName="DemoVirtualNetwork"
+
+$subnetName1="FrontEndSubnet"
+$subnetName2="BackEndSubnet"
+
+
+$subnet=New-AzureRmVirtualNetworkSubnetConfig -Name $subnetName1 -AddressPrefix 192.168.1.0/24
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+#Get the reference to the VNet that has the subnet being targeted
+
+$vNet= New-AzureRmVirtualNetwork -Name $vNetName -ResourceGroupName $rgName -Location $location -AddressPrefix "192.168.0.0/16" -Subnet $subnet
+
+$subnet = Get-AzureRmVirtualNetworkSubnetConfig -Name $subnetName -VirtualNetwork $vNet
+======================================================================================================================================================================================
+#Add the frountend and Backend subnet to the VNet
+
+$subnet=New-AzureRmVirtualNetworkSubnetConfig -Name $subnetName1 -VirtualNetwork $vNet -AddressPrefix 192.168.1.0/24
+
+Add-AzureRmVirtualNetworkSubnetConfig -Name $subnetName2 -VirtualNetwork $vNet -AddressPrefix 192.168.2.0/24
+
+Set-AzureRmVirtualNetwork -VirtualNetwork $vNet
+**************************************************************************************************************************************************************************************
+
+
+# Create a public IP address object that can be assigned to the NIC (Network Interface Card)
+
+$pubiP = New-AzureRmPublicIpAddress -Name $PubliciPName -ResourceGroupName $rgName -Location $location -AllocationMethod Dynamic -DomainNameLabel "dss-webvm1"
+
+#Create the NIC attached to a subnet, with a public facing IP, and a private IP
+
+$NIC= New-AzureRmNetworkInterface -Name $NICName -ResourceGroupName $rgName -Location $location -SubnetId $vNet.Subnets[0].Id -PublicIpAddressId $pubiP.Id -PrivateIpAddress "192.168.1.4"
+
+*****************************************************************************************************************************************************************************************
+
+
+#Create the variable that will hold the name of the virtual machine
+
+$vmName = "WebVM1"
+
+# Create the variable that will store the size of the VM
+
+$vmSize="Standard_B1s"
+
+# Create the virtual machine configuration object and save a reference to it 
+
+$vmConfig = New-AzureRmVMConfig -VMName $vmName -VMSize $vmSize
+
+***************************************************************************************************************************************************************************************
+#to know the ImagePublosher
+Get-AzureRmVMImagePublisher
+
+Now that the virtual machine configuration object is created, the configuration information can be assigned to it. This includes defining the operating system, 
+the base gallery image, and the previously created network adapter that you want to assign to the virtual machine. Optionally, you can also specify a name for 
+the operating system VHD. If you do not specify one, Azure will assign a name automatically.
+
+# In order to define the gallery image, the publisher, offer, and the SKU for the gallery image is needed. You can refer to the following article to understand how 
+to do determine the available values to use: https://azure.microsoft.com/en-us/documentation/articles/resource-groups-vm-searching/#powershell
+
+# For this example, a Windows Server 2012 R2 Datacenter image is specified in the configuration information.
+
+$pubName = "MicrosoftWindowsServer"
+
+$offerName="WindowsServer"
+$skuName="2012-R2-Datacenter"
+$diskName="WebVM10SDisk"
+
+
+
+
+# Prompt for credentials that will be used for the local admin password for the VM
+
+$cred = Get-Credential -Message "Type the name and password of the local administrator account."
+
+# Assign the operating system to the VM configuration
+
+$vmConfig = Set-AzureRmVMOperatingSystem -VM $vmConfig -Windows -ComputerName $vmName -Credential $cred -ProvisionVMAgent -EnableAutoUpda
+
+#Assign the gallery image to the VM configuration
+
+$vmConfig = Set-AzureRmVMSourceImage -VM $vmConfig -publishername $pubName -offer $offerName -Skus $skuName -Version "latest"
+
+#Assign the NIC to the VM configuration
+
+ $vmConfig = Add-AzureRmVMNetworkInterface -VM $vmConfig -Id $NIC.Id
+
+# Create the URI to store the OS disk VHD
+
+$OSDiskUri = $STA.PrimaryEndpoints.Blob.ToString() + "vhds/"+ $diskName + ".vhd"
+
+# Assign the OS Disk name and location to the VM configuration
+
+$vmConfig = Set-AzureRmVMOSDisk -VM $vmConfig -Name $diskName -VhdUri $OSDiskUri -CreateOption fromImage
+
+New-AzureRmVM -ResourceGroupName $rgName -Location $location -VM $vmConfig
+
+
+
+
+Get-AzureRMVM
+Get-AzureRMvirtualnetwork
+Get-AzureRMpublicipaddress
