@@ -1,5 +1,5 @@
 ##Provisioning an Azure Virtual Machine with PowerShell##
-##Prerequisites##
+#Prerequisites#
     An Azure subscription
     1. PowerShell (Core) - Although you could follow along with this tutorial with Windows PowerShell, you should know by now it's no longer being actively developed by Microsoft. Instead, be sure you have PowerShell (Core) installed. Learn how to install PowerShell (Core) in a previous post in our series <link here>.
     2. To have already authenticated to Azure (For instructions on connecting to Azure, check out this post<link here> in our series on how to do that)
