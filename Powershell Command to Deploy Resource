@@ -138,9 +138,11 @@ $vmConfig = Set-AzureRmVMOSDisk -VM $vmConfig -Name $diskName -VhdUri $OSDiskUri
 
 New-AzureRmVM -ResourceGroupName $rgName -Location $location -VM $vmConfig
 
-
-
-
 Get-AzureRMVM
 Get-AzureRMvirtualnetwork
 Get-AzureRMpublicipaddress
+
+
+***********************************************************
+New-AzureRmResourceGroupDeployment -ResourceGroupName training1 -TemplateUri D:\vm.json
+***********************************************************************************************
